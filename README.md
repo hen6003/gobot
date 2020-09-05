@@ -10,4 +10,4 @@ a discord bot written in go
 `!stop` disconnects from the voice channels in that server
 
 ## add
-[Add](https://discord.com/oauth2/authorize?client_id=655547045402116096&scope=bot)
+[Click Here](https://discord.com/oauth2/authorize?client_id=655547045402116096&scope=bot)
