@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -10,40 +9,34 @@ import (
 	"syscall"
 	"time"
 
+	"flago"
 	"github.com/bwmarrin/discordgo"
 	"github.com/jonas747/dca"
 	"github.com/kkdai/youtube"
 )
 
-func init() {
-	flag.StringVar(&token, "t", "", "Bot Token")
-	flag.Parse()
-}
-
 var token string
 
 func main() {
+	token = flago.NonFlags()[0]
 
 	if token == "" {
-		fmt.Println("No token provided. Please run: airhorn -t <bot token>")
+		fmt.Println("No token provided. Please run: gobot <bot token>")
 		return
 	}
 
 	// Create a new Discord session using the provided bot token.
 	dg, err := discordgo.New("Bot " + token)
 	if err != nil {
-		fmt.Println("Error creating Discord session: ", err)
-		return
+		fmt.Fprintln(os.Stderr, "Error creating Discord session: ", err)
+		os.Exit(1)
 	}
 
-	// Register ready as a callback for the ready events.
-	dg.AddHandler(ready)
+	dg.AddHandler(ready) // Register ready as a callback for the ready events.
 
-	// Register messageCreate as a callback for the messageCreate events.
-	dg.AddHandler(messageCreate)
+	dg.AddHandler(messageCreate) // Register messageCreate as a callback for the messageCreate events.
 
-	// Register guildCreate as a callback for the guildCreate events.
-	dg.AddHandler(guildCreate)
+	dg.AddHandler(guildCreate) // Register guildCreate as a callback for the guildCreate events.
 
 	// We need information about guilds (which includes their channels),
 	// messages and voice states.
@@ -52,11 +45,12 @@ func main() {
 	// Open the websocket and begin listening.
 	err = dg.Open()
 	if err != nil {
-		fmt.Println("Error opening Discord session: ", err)
+		fmt.Fprintln(os.Stderr, "Error opening Discord session: ", err)
+		os.Exit(1)
 	}
 
 	// Wait here until CTRL-C or other term signal is received.
-	fmt.Println("Airhorn is now running.  Press CTRL-C to exit.")
+	fmt.Println(os.Args[0] + " is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
@@ -97,10 +91,11 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	if strings.HasPrefix(m.Content, "!play") {
-		s.ChannelMessageSend(c.ID, "Playing")
+	msg := strings.Split(m.Content, " ")
 
-		msg := strings.Split(m.Content, " ")
+	switch msg[0] {
+	case "!play":
+		s.ChannelMessageSend(c.ID, "Playing")
 
 		var msgStr string
 		for _, v := range msg[1:] {
@@ -122,33 +117,42 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				return
 			}
 		}
-	}
 
-	if strings.HasPrefix(m.Content, "!playid") {
-		s.ChannelMessageSend(c.ID, "Playing")
+		s.ChannelMessageSend(c.ID, "ERROR: You are not in any voice channels")
 
-		msg := strings.Split(m.Content, " ")
-
-		// Look for the message sender in that guild's current voice states.
-		for _, vs := range g.VoiceStates {
-			if vs.UserID == m.Author.ID {
-				err = playSound(s, g.ID, vs.ChannelID, msg[1])
-				if err != nil {
-					fmt.Println("Error playing sound:", err)
-				}
-
-				return
-			}
-		}
-	}
-
-	if strings.HasPrefix(m.Content, "!stop") {
+	case "!stop":
 		s.ChannelMessageSend(c.ID, "Stopping, Cya")
 		for _, vcs := range s.VoiceConnections {
 			if vcs.GuildID == g.ID {
 				vcs.Disconnect()
 			}
 		}
+
+	case "!help":
+		fields := make([]*discordgo.MessageEmbedField, 0)
+
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:  "!play [args]",
+			Value: "search youtube for [args] and play the video",
+		})
+
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:  "!stop",
+			Value: "stop playback in the server",
+		})
+
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:  "!help",
+			Value: "show this help",
+		})
+
+		helpEmbed := &discordgo.MessageEmbed{
+			Description: "Help Menu",
+		}
+
+		helpEmbed.Fields = append(helpEmbed.Fields, fields...)
+
+		s.ChannelMessageSendEmbed(c.ID, helpEmbed)
 	}
 }
 
