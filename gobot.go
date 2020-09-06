@@ -16,14 +16,46 @@ import (
 )
 
 var token string
+var key string
+var helpEmbed *discordgo.MessageEmbed
 
 func main() {
 	token = flago.NonFlags()[0]
+	key = flago.NonFlags()[1]
 
 	if token == "" {
-		fmt.Println("No token provided. Please run: gobot <bot token>")
+		fmt.Println("No token provided. Please run: " + flago.ProgramName + " <bot token> <pixabay key>")
 		return
 	}
+
+	// create help msg
+	fields := make([]*discordgo.MessageEmbedField, 0)
+
+	fields = append(fields, &discordgo.MessageEmbedField{
+		Name:  "!play [args]",
+		Value: "search youtube for [args] and play the video",
+	})
+
+	fields = append(fields, &discordgo.MessageEmbedField{
+		Name:  "!stop",
+		Value: "stop playback in the server",
+	})
+
+	fields = append(fields, &discordgo.MessageEmbedField{
+		Name:  "!img [args]",
+		Value: "search pixabay for [args] and sends it",
+	})
+
+	fields = append(fields, &discordgo.MessageEmbedField{
+		Name:  "!help",
+		Value: "show this help",
+	})
+
+	helpEmbed = &discordgo.MessageEmbed{
+		Description: "Help Menu",
+	}
+
+	helpEmbed.Fields = append(helpEmbed.Fields, fields...)
 
 	// Create a new Discord session using the provided bot token.
 	dg, err := discordgo.New("Bot " + token)
@@ -50,7 +82,7 @@ func main() {
 	}
 
 	// Wait here until CTRL-C or other term signal is received.
-	fmt.Println(os.Args[0] + " is now running.  Press CTRL-C to exit.")
+	fmt.Println(flago.ProgramName + " is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
@@ -93,14 +125,14 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	msg := strings.Split(m.Content, " ")
 
+	var msgStr string
+	for _, v := range msg[1:] {
+		msgStr += v + " "
+	}
+
 	switch msg[0] {
 	case "!play":
 		s.ChannelMessageSend(c.ID, "Playing")
-
-		var msgStr string
-		for _, v := range msg[1:] {
-			msgStr += v
-		}
 
 		videoID := search(msgStr)
 
@@ -128,30 +160,18 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 		}
 
-	case "!help":
-		fields := make([]*discordgo.MessageEmbedField, 0)
+	case "!img":
+		imgUrl := imgSearch(msgStr)
 
-		fields = append(fields, &discordgo.MessageEmbedField{
-			Name:  "!play [args]",
-			Value: "search youtube for [args] and play the video",
-		})
-
-		fields = append(fields, &discordgo.MessageEmbedField{
-			Name:  "!stop",
-			Value: "stop playback in the server",
-		})
-
-		fields = append(fields, &discordgo.MessageEmbedField{
-			Name:  "!help",
-			Value: "show this help",
-		})
-
-		helpEmbed := &discordgo.MessageEmbed{
-			Description: "Help Menu",
+		if imgUrl == "talHits" {
+			s.ChannelMessageSend(c.ID, "No imgs found with: "+msgStr)
+			return
 		}
 
-		helpEmbed.Fields = append(helpEmbed.Fields, fields...)
+		s.ChannelMessageSend(c.ID, "Found:")
+		s.ChannelMessageSend(c.ID, imgUrl)
 
+	case "!help":
 		s.ChannelMessageSendEmbed(c.ID, helpEmbed)
 	}
 }

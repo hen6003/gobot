@@ -7,6 +7,8 @@ a discord bot written in go
 
 `!playid [args]` plays the youtube video with the id in args
 
+`!img [args]` search pixabay for [args] and sends it
+
 `!stop` disconnects from the voice channels in that server
 
 ## add
