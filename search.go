@@ -1,7 +1,6 @@
 package main
 
 import (
-	// "io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -32,7 +31,7 @@ func search(query string) string {
 func imgSearch(query string) string {
 	query = strings.Replace(query, " ", "+", -1)
 
-	resp, err := http.Get("https://pixabay.com/api/?key=" + key + "&q=" + query)
+	resp, err := http.Get("https://yandex.com/images/search?text=" + query)
 	if err != nil {
 		log.Println(err)
 	}
@@ -44,13 +43,18 @@ func imgSearch(query string) string {
 	}
 	fileStr := string(file)
 
-	i := strings.Index(fileStr, "webformatURL")
+	i := strings.Index(fileStr, "pos=0")
 
-	fileStr = fileStr[i+15:]
+	fileStr = fileStr[i+18:]
 
-	i = strings.Index(fileStr, "\"")
+	i = strings.Index(fileStr, "&")
 
 	fileStr = fileStr[:i]
+
+	fileStr = strings.Replace(fileStr, "%2F", "/", -1)
+	fileStr = strings.Replace(fileStr, "%3A", ":", -1)
+	fileStr = strings.Replace(fileStr, "%3F", "?", -1)
+	fileStr = strings.Replace(fileStr, "%3D", "=", -1)
 
 	return fileStr
 }

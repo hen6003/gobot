@@ -1,10 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"os"
 	"os/signal"
+	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -16,19 +19,37 @@ import (
 )
 
 var token string
-var key string
 var helpEmbed *discordgo.MessageEmbed
+var dg *discordgo.Session
+
+var messageNums map[string]int = make(map[string]int)
 
 func main() {
 	token = flago.NonFlags()[0]
-	key = flago.NonFlags()[1]
 
 	if token == "" {
-		fmt.Println("No token provided. Please run: " + flago.ProgramName + " <bot token> <pixabay key>")
+		log.Println("No token provided. Please run: " + flago.ProgramName + " <bot token>")
 		return
 	}
 
-	// create help msg
+	data, err := ioutil.ReadFile("msgsdata.save")
+	if err != nil {
+		log.Panicf("failed reading data from file: %s", err)
+	}
+	dataArray := strings.Split(string(data), "\n")
+	dataArray = dataArray[:len(dataArray)-1]
+
+	for _, v := range dataArray {
+		info := strings.Split(v, ":")
+
+		num, err := strconv.Atoi(info[1])
+		if err != nil {
+			log.Panicf("failed reading data from file: %s", err)
+		}
+
+		messageNums[info[0]] = num
+	}
+
 	fields := make([]*discordgo.MessageEmbedField, 0)
 
 	fields = append(fields, &discordgo.MessageEmbedField{
@@ -43,7 +64,12 @@ func main() {
 
 	fields = append(fields, &discordgo.MessageEmbedField{
 		Name:  "!img [args]",
-		Value: "search pixabay for [args] and sends it",
+		Value: "search yandex for [args] and sends it",
+	})
+
+	fields = append(fields, &discordgo.MessageEmbedField{
+		Name:  "!msgs",
+		Value: "sends how many messages you have sent",
 	})
 
 	fields = append(fields, &discordgo.MessageEmbedField{
@@ -58,9 +84,9 @@ func main() {
 	helpEmbed.Fields = append(helpEmbed.Fields, fields...)
 
 	// Create a new Discord session using the provided bot token.
-	dg, err := discordgo.New("Bot " + token)
+	dg, err = discordgo.New("Bot " + token)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error creating Discord session: ", err)
+		log.Println("Error creating Discord session: ", err)
 		os.Exit(1)
 	}
 
@@ -72,23 +98,45 @@ func main() {
 
 	// We need information about guilds (which includes their channels),
 	// messages and voice states.
-	dg.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildVoiceStates)
+	dg.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages | discordgo.IntentsGuildVoiceStates)
 
 	// Open the websocket and begin listening.
 	err = dg.Open()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error opening Discord session: ", err)
+		log.Println("Error opening Discord session: ", err)
 		os.Exit(1)
 	}
 
 	// Wait here until CTRL-C or other term signal is received.
-	fmt.Println(flago.ProgramName + " is now running.  Press CTRL-C to exit.")
+	log.Println(flago.ProgramName + " is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
 
 	// Cleanly close down the Discord session.
 	dg.Close()
+
+	log.Println("Writing data to save file")
+
+	f, err := os.Create("msgsdata.save")
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	for i, v := range messageNums {
+		vStr := strconv.Itoa(v)
+		_, err := f.WriteString(i + ":" + vStr + "\n")
+		if err != nil {
+			log.Println(err)
+			f.Close()
+			return
+		}
+	}
+	err = f.Close()
+	if err != nil {
+		log.Println(err)
+		return
+	}
 }
 
 // This function will be called (due to AddHandler above) when the bot receives
@@ -99,9 +147,33 @@ func ready(s *discordgo.Session, event *discordgo.Ready) {
 	s.UpdateStatus(0, "!help")
 }
 
+// from @Xeoncross on stackoverflow.com
+func rankMap(values map[string]int) []string {
+	type kv struct {
+		Key   string
+		Value int
+	}
+	var ss []kv
+	for k, v := range values {
+		ss = append(ss, kv{k, v})
+	}
+	sort.Slice(ss, func(i, j int) bool {
+		return ss[i].Value > ss[j].Value
+	})
+	ranked := make([]string, len(values))
+	for i, kv := range ss {
+		ranked[i] = kv.Key
+	}
+	return ranked
+}
+
 // This function will be called (due to AddHandler above) every time a new
 // message is created on any channel that the autenticated bot has access to.
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	if _, ok := messageNums[m.Author.ID]; !ok {
+		messageNums[m.Author.ID] = 0
+	}
+	messageNums[m.Author.ID]++
 
 	// Ignore all messages created by the bot itself
 	// This isn't required in this specific example but it's a good practice.
@@ -143,7 +215,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if vs.UserID == m.Author.ID {
 				err = playSound(s, g.ID, vs.ChannelID, videoID)
 				if err != nil {
-					fmt.Println("Error playing sound:", err)
+					log.Println("Error playing sound:", err)
 				}
 
 				return
@@ -163,17 +235,67 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	case "!img":
 		imgUrl := imgSearch(msgStr)
 
-		if imgUrl == "talHits" {
-			s.ChannelMessageSend(c.ID, "No imgs found with: "+msgStr)
-			return
+		s.ChannelMessageDelete(c.ID, m.ID)
+
+		imgEmbed := &discordgo.MessageEmbed{
+			Description: "Search Term: " + msgStr,
+			Image:       &discordgo.MessageEmbedImage{URL: imgUrl},
 		}
 
-		s.ChannelMessageSend(c.ID, "Found:")
-		s.ChannelMessageSend(c.ID, imgUrl)
+		s.ChannelMessageSendEmbed(c.ID, imgEmbed)
+
+	case "!msgs":
+		msgsEmbed := &discordgo.MessageEmbed{}
+
+		if len(msg) > 1 {
+			if msg[1] == "leaderboard" {
+				ranks := rankMap(messageNums)
+
+				fields := make([]*discordgo.MessageEmbedField, 0)
+
+				for _, v := range ranks {
+					msgSent := strconv.Itoa(messageNums[v])
+
+					user, err := dg.User(v)
+					if err != nil {
+						log.Println("Error finding user:", err)
+					}
+
+					username := user.Username
+
+					fields = append(fields, &discordgo.MessageEmbedField{
+						Name:  "User: " + username,
+						Value: "Messages sent: " + msgSent,
+					})
+
+					msgsEmbed.Fields = fields
+				}
+			} else if len(m.Mentions) > 0 {
+				fields := makeMsgEmbed(m.Mentions[0].Username, strconv.Itoa(messageNums[m.Mentions[0].ID]))
+				msgsEmbed.Fields = append(msgsEmbed.Fields, fields...)
+			}
+		} else {
+			fields := makeMsgEmbed(m.Author.Username, strconv.Itoa(messageNums[m.Author.ID]))
+
+			msgsEmbed.Fields = append(msgsEmbed.Fields, fields...)
+		}
+
+		s.ChannelMessageSendEmbed(c.ID, msgsEmbed)
 
 	case "!help":
 		s.ChannelMessageSendEmbed(c.ID, helpEmbed)
 	}
+}
+
+func makeMsgEmbed(username string, msgSent string) []*discordgo.MessageEmbedField {
+	fields := make([]*discordgo.MessageEmbedField, 0)
+
+	fields = append(fields, &discordgo.MessageEmbedField{
+		Name:  "User: " + username,
+		Value: "Messages sent: " + msgSent,
+	})
+
+	return fields
 }
 
 // This function will be called (due to AddHandler above) every time a new
