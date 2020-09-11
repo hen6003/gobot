@@ -4,6 +4,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
 	"sort"
@@ -242,6 +243,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			Image:       &discordgo.MessageEmbedImage{URL: imgUrl},
 		}
 
+		imgEmbed.Color = embedColourGen()
+
 		s.ChannelMessageSendEmbed(c.ID, imgEmbed)
 
 	case "!msgs":
@@ -280,9 +283,13 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			msgsEmbed.Fields = append(msgsEmbed.Fields, fields...)
 		}
 
+		msgsEmbed.Color = embedColourGen()
+
 		s.ChannelMessageSendEmbed(c.ID, msgsEmbed)
 
 	case "!help":
+		helpEmbed.Color = embedColourGen()
+
 		s.ChannelMessageSendEmbed(c.ID, helpEmbed)
 	}
 }
@@ -301,7 +308,6 @@ func makeMsgEmbed(username string, msgSent string) []*discordgo.MessageEmbedFiel
 // This function will be called (due to AddHandler above) every time a new
 // guild is joined.
 func guildCreate(s *discordgo.Session, event *discordgo.GuildCreate) {
-
 	if event.Guild.Unavailable {
 		return
 	}
@@ -365,4 +371,11 @@ func playSound(s *discordgo.Session, guildID, channelID string, videoID string) 
 	vc.Disconnect()
 
 	return nil
+}
+
+func embedColourGen() int {
+	rand.Seed(time.Now().UnixNano())
+	options := []int{0, 1752220, 3066993, 3447003, 10181046, 15844367, 15105570, 15158332, 9807270, 8359053, 3426654, 1146986, 2067276, 2123412, 7419530, 12745742, 11027200, 10038562, 9936031, 12370112, 2899536, 16580705, 12320855}
+
+	return options[rand.Intn(22)]
 }
