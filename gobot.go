@@ -29,7 +29,7 @@ func main() {
 	token = flago.NonFlags()[0]
 
 	if token == "" {
-		log.Println("No token provided. Please run: " + flago.ProgramName + " <bot token>")
+		log.Println("No token provided. Please run: gobot <bot token>")
 		return
 	}
 
@@ -109,7 +109,7 @@ func main() {
 	}
 
 	// Wait here until CTRL-C or other term signal is received.
-	log.Println(flago.ProgramName + " is now running.  Press CTRL-C to exit.")
+	log.Println("gobot is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
