@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"flago"
+	"github.com/hen6003/flago"
 	"github.com/bwmarrin/discordgo"
 	"github.com/jonas747/dca"
 	"github.com/kkdai/youtube"
