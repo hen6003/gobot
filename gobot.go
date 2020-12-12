@@ -33,11 +33,6 @@ func main() {
 		return
 	}
 
-	f, err := os.Create("msgsdata.save")
-	if err != nil {
-		log.Println(err)
-		return
-	}
 	data, err := ioutil.ReadFile("msgsdata.save")
 	if err != nil {
 		log.Panicf("failed reading data from file: %s", err)
