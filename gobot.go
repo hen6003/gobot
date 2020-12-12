@@ -13,8 +13,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hen6003/flago"
 	"github.com/bwmarrin/discordgo"
+	"github.com/hen6003/flago"
 	"github.com/jonas747/dca"
 	"github.com/kkdai/youtube"
 )
@@ -33,6 +33,11 @@ func main() {
 		return
 	}
 
+	f, err := os.Create("msgsdata.save")
+	if err != nil {
+		log.Println(err)
+		return
+	}
 	data, err := ioutil.ReadFile("msgsdata.save")
 	if err != nil {
 		log.Panicf("failed reading data from file: %s", err)
@@ -119,11 +124,6 @@ func main() {
 
 	log.Println("Writing data to save file")
 
-	f, err := os.Create("msgsdata.save")
-	if err != nil {
-		log.Println(err)
-		return
-	}
 	for i, v := range messageNums {
 		vStr := strconv.Itoa(v)
 		_, err := f.WriteString(i + ":" + vStr + "\n")
@@ -143,7 +143,6 @@ func main() {
 // This function will be called (due to AddHandler above) when the bot receives
 // the "ready" event from Discord.
 func ready(s *discordgo.Session, event *discordgo.Ready) {
-
 	// Set the playing status.
 	s.UpdateStatus(0, "!help")
 }
@@ -291,6 +290,9 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		helpEmbed.Color = embedColourGen()
 
 		s.ChannelMessageSendEmbed(c.ID, helpEmbed)
+
+	case "!hello":
+		s.ChannelMessageSend(c.ID, "hello")
 	}
 }
 
