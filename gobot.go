@@ -27,6 +27,7 @@ var messageNums map[string]int = make(map[string]int)
 
 func main() {
 	token = flago.NonFlags()[0]
+	stopsignal := ""
 
 	if token == "" {
 		log.Println("No token provided. Please run: gobot <bot token>")
@@ -113,11 +114,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Wait here until CTRL-C or other term signal is received.
-	log.Println("gobot is now running.  Press CTRL-C to exit.")
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
-	<-sc
+	// Wait here until "stop" is recieved
+	log.Println("gobot is now running.  Type \"stop\" to exit.")
+	for stopsignal != "stop" {
+		fmt.Scanln(&stopsignal)
+	}
 
 	// Cleanly close down the Discord session.
 	dg.Close()
