@@ -119,6 +119,12 @@ func main() {
 
 	log.Println("Writing data to save file")
 
+	f, err := os.Create("msgsdata.save")
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
 	for i, v := range messageNums {
 		vStr := strconv.Itoa(v)
 		_, err := f.WriteString(i + ":" + vStr + "\n")
