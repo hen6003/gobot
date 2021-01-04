@@ -31,7 +31,7 @@ func search(query string) string {
 func imgSearch(query string) string {
 	query = strings.Replace(query, " ", "+", -1)
 
-	resp, err := http.Get("https://yandex.com/images/search?text=" + query)
+	resp, err := http.Get("https://yandex.com/images/search?from=tabbar?text=" + query)
 	if err != nil {
 		log.Println(err)
 	}
